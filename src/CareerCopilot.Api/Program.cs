@@ -56,7 +56,8 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 
-var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
+var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS")?.Split(',', StringSplitOptions.RemoveEmptyEntries)
+    ?? builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
 
 builder.Services.AddCors(options => options.AddPolicy("web", policy =>
