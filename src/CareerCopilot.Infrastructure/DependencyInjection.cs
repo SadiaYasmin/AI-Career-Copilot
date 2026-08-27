@@ -18,7 +18,7 @@ public static class DependencyInjection
             ?? "";
 
         Console.WriteLine($"[DB] Connection string length: {connectionString.Length}");
-        Console.WriteLine($"[DB] Connection string prefix: {connectionString.Length > 10 ? connectionString[..10] : connectionString}");
+        Console.WriteLine($"[DB] Connection string prefix: {(connectionString.Length > 10 ? connectionString[..10] : connectionString)}");
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString));
