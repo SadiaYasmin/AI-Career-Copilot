@@ -14,10 +14,6 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
-        if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
-        {
-            connectionString += connectionString.Contains('?') ? "&SslMode=Require" : "?SslMode=Require";
-        }
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString));
