@@ -7,6 +7,7 @@ using CareerCopilot.Infrastructure;
 using CareerCopilot.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,98 +15,105 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Configuration.Sources.Clear();
-builder.Configuration
-    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-    .AddEnvironmentVariables()
+var configuration = new ConfigurationBuilder()
     .AddInMemoryCollection(new Dictionary<string, string?>
     {
+        ["Environment"] = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
         ["Ai:ApiKey"] = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "",
         ["Ai:Model"] = Environment.GetEnvironmentVariable("AI_MODEL") ?? "",
         ["ConnectionStrings:DefaultConnection"] = Environment.GetEnvironmentVariable("DB_CONNECTION") ?? "",
         ["Jwt:Secret"] = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "",
         ["Jwt:Issuer"] = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "",
         ["Jwt:Audience"] = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? ""
-    }.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value));
+    }.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value))
+    .AddEnvironmentVariables()
+    .Build();
 
-builder.Services
-    .AddApplication(builder.Configuration)
-    .AddInfrastructure(builder.Configuration)
-    .AddAi(builder.Configuration);
-
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
-builder.Services.AddOpenApi();
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer();
-
-builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<CareerCopilot.Infrastructure.Authentication.JwtOptions>((options, jwt) =>
+var host = new HostBuilder()
+    .ConfigureWebHostDefaults(webBuilder =>
     {
-        options.RequireHttpsMetadata = false;
-        options.TokenValidationParameters = new TokenValidationParameters
+        webBuilder.ConfigureAppConfiguration((_, cfg) =>
         {
-            ValidateIssuer = true,
-            ValidIssuer = jwt.Issuer,
-            ValidateAudience = true,
-            ValidAudience = jwt.Audience,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret)),
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
-        };
-    });
+            cfg.Sources.Clear();
+            cfg.AddConfiguration(configuration);
+        });
+        webBuilder.UseUrls(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://+:8080");
+        webBuilder.ConfigureServices(services =>
+        {
+            services
+                .AddApplication(configuration)
+                .AddInfrastructure(configuration)
+                .AddAi(configuration);
 
-builder.Services.AddAuthorization();
+            services.AddHttpContextAccessor();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddControllers()
+                .AddJsonOptions(options =>
+                    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+            services.AddOpenApi();
 
-var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS")?.Split(',', StringSplitOptions.RemoveEmptyEntries)
-    ?? builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
-    ?? new[] { "http://localhost:5173" };
+            services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer();
 
-builder.Services.AddCors(options => options.AddPolicy("web", policy =>
-    policy.WithOrigins(corsOrigins)
-        .AllowAnyHeader()
-        .AllowAnyMethod()));
+            services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+                .Configure<CareerCopilot.Infrastructure.Authentication.JwtOptions>((options, jwt) =>
+                {
+                    options.RequireHttpsMetadata = false;
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidIssuer = jwt.Issuer,
+                        ValidateAudience = true,
+                        ValidAudience = jwt.Audience,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret)),
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.FromMinutes(1)
+                    };
+                });
 
-builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://+:8080");
+            services.AddAuthorization();
 
-var app = builder.Build();
+            var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS")?.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                ?? new[] { "http://localhost:5173" };
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    var connString = db.Database.GetConnectionString();
-    if (!string.IsNullOrEmpty(connString))
+            services.AddCors(options => options.AddPolicy("web", policy =>
+                policy.WithOrigins(corsOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()));
+        });
+        webBuilder.Configure(app =>
+        {
+            using var scope = app.ApplicationServices.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var connStr = db.Database.GetConnectionString();
+            if (!string.IsNullOrEmpty(connStr))
+            {
+                try { db.Database.Migrate(); }
+                catch (Exception ex)
+                {
+                    var logger = app.ApplicationServices.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+                    logger.LogWarning(ex, "Database migration failed, attempting EnsureCreated");
+                    try { db.Database.EnsureCreated(); } catch { }
+                }
+            }
+
+            app.UseMiddleware<ErrorHandlingMiddleware>();
+            app.UseCors("web");
+            app.UseRouting();
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.UseEndpoints(endpoints => endpoints.MapControllers());
+        });
+    })
+    .ConfigureLogging(logging =>
     {
-        try { db.Database.Migrate(); }
-        catch (Exception ex)
-        {
-            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-            logger.LogWarning(ex, "Database migration failed, attempting EnsureCreated");
-            try { db.Database.EnsureCreated(); } catch { }
-        }
-    }
-}
+        logging.ClearProviders();
+        logging.AddConsole();
+    })
+    .UseContentRoot(Directory.GetCurrentDirectory());
 
-app.UseMiddleware<ErrorHandlingMiddleware>();
-app.UseCors("web");
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.Run();
+await host.Build().RunAsync();
 
 public partial class Program;
