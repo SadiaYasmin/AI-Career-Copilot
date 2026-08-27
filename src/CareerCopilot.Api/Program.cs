@@ -25,7 +25,10 @@ builder.Configuration
     {
         ["Ai:ApiKey"] = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "",
         ["Ai:Model"] = Environment.GetEnvironmentVariable("AI_MODEL") ?? "",
-        ["ConnectionStrings:DefaultConnection"] = Environment.GetEnvironmentVariable("DB_CONNECTION") ?? ""
+        ["ConnectionStrings:DefaultConnection"] = Environment.GetEnvironmentVariable("DB_CONNECTION") ?? "",
+        ["Jwt:Secret"] = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "",
+        ["Jwt:Issuer"] = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "",
+        ["Jwt:Audience"] = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? ""
     }.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value));
 
 builder.Services
