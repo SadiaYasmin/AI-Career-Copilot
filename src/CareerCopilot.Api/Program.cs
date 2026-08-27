@@ -9,7 +9,17 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-ApplyEnvironmentOverrides(builder.Configuration);
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables()
+    .AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["Ai:ApiKey"] = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "",
+        ["Ai:Model"] = Environment.GetEnvironmentVariable("AI_MODEL") ?? "",
+        ["ConnectionStrings:DefaultConnection"] = Environment.GetEnvironmentVariable("DB_CONNECTION") ?? ""
+    }.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value));
 
 builder.Services
     .AddApplication(builder.Configuration)
@@ -68,33 +78,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
-
-static void ApplyEnvironmentOverrides(Microsoft.Extensions.Configuration.IConfigurationBuilder configuration)
-{
-    var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY");
-    var model = Environment.GetEnvironmentVariable("AI_MODEL");
-    var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION");
-
-    var overrides = new Dictionary<string, string?>();
-    if (!string.IsNullOrWhiteSpace(apiKey))
-    {
-        overrides["Ai:ApiKey"] = apiKey;
-    }
-
-    if (!string.IsNullOrWhiteSpace(model))
-    {
-        overrides["Ai:Model"] = model;
-    }
-
-    if (!string.IsNullOrWhiteSpace(dbConnection))
-    {
-        overrides["ConnectionStrings:DefaultConnection"] = dbConnection;
-    }
-
-    if (overrides.Count > 0)
-    {
-        configuration.AddInMemoryCollection(overrides);
-    }
-}
 
 public partial class Program;
