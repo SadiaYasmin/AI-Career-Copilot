@@ -4,7 +4,9 @@ using CareerCopilot.API.Common;
 using CareerCopilot.Application;
 using CareerCopilot.Application.Common.Interfaces;
 using CareerCopilot.Infrastructure;
+using CareerCopilot.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +68,12 @@ builder.Services.AddCors(options => options.AddPolicy("web", policy =>
         .AllowAnyMethod()));
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseCors("web");
