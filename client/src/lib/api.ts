@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE_URL || ''
+const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
 export interface ApiEnvelope<T> {
   success: boolean
