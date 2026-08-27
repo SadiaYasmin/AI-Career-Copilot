@@ -6,7 +6,12 @@ using CareerCopilot.Application.Common.Interfaces;
 using CareerCopilot.Infrastructure;
 using CareerCopilot.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,12 +72,24 @@ builder.Services.AddCors(options => options.AddPolicy("web", policy =>
         .AllowAnyHeader()
         .AllowAnyMethod()));
 
+builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://+:8080");
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
+    var connString = db.Database.GetConnectionString();
+    if (!string.IsNullOrEmpty(connString))
+    {
+        try { db.Database.Migrate(); }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+            logger.LogWarning(ex, "Database migration failed, attempting EnsureCreated");
+            try { db.Database.EnsureCreated(); } catch { }
+        }
+    }
 }
 
 app.UseMiddleware<ErrorHandlingMiddleware>();

@@ -21,8 +21,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
+RUN rm -f appsettings.json appsettings.*.json
+
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_contentRoot=/app
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "CareerCopilot.Api.dll"]

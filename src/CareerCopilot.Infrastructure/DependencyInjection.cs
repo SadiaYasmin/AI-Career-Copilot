@@ -13,12 +13,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION")
-            ?? configuration.GetConnectionString("DefaultConnection")
-            ?? "";
-
-        Console.WriteLine($"[DB] Connection string length: {connectionString.Length}");
-        Console.WriteLine($"[DB] Connection string prefix: {(connectionString.Length > 10 ? connectionString[..10] : connectionString)}");
+        var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString));
