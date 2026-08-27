@@ -69,6 +69,6 @@ public sealed class ErrorHandlingMiddleware
             AiUnavailableException ex => (StatusCodes.Status503ServiceUnavailable,
                 new ApiError { Message = ex.Message, ErrorCode = ex.ErrorCode }),
             _ => (StatusCodes.Status500InternalServerError,
-                new ApiError { Message = "An unexpected error occurred.", ErrorCode = "INTERNAL_ERROR" })
+                new ApiError { Message = $"An unexpected error occurred: {exception.Message}", ErrorCode = "INTERNAL_ERROR" })
         };
 }
