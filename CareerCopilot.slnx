@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CareerCopilot.AI/CareerCopilot.AI.csproj" />
+    <Project Path="src/CareerCopilot.Api/CareerCopilot.Api.csproj" />
+    <Project Path="src/CareerCopilot.Application/CareerCopilot.Application.csproj" />
+    <Project Path="src/CareerCopilot.Domain/CareerCopilot.Domain.csproj" />
+    <Project Path="src/CareerCopilot.Infrastructure/CareerCopilot.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CareerCopilot.IntegrationTests/CareerCopilot.IntegrationTests.csproj" />
+    <Project Path="tests/CareerCopilot.UnitTests/CareerCopilot.UnitTests.csproj" />
+  </Folder>
+</Solution>

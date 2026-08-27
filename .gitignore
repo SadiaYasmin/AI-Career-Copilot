@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+*.user
+App_Data/
+
+# Test results
+TestResults/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+client/dist/
